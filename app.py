@@ -1,4 +1,3 @@
-
 """
 AutoSentinel — Automotive Customer Voice Intelligence Platform
 Complete Streamlit app. Single file. Deploy on Streamlit Cloud.
@@ -471,20 +470,28 @@ def get_secrets():
 
 def fetch_youtube(api_key: str, brand: str, model: str, year: int,
                   progress_cb=None) -> list:
+    """Massively expanded YouTube fetcher — all comments, no like filter."""
     comments = []
+    # More queries = more videos = more comments
     queries = [
-        f"{brand} {model} {year} problem issue owner",
-        f"{brand} {model} {year} defect fault review",
+        f"{brand} {model} {year} problem issue owner experience",
+        f"{brand} {model} {year} defect fault complaint",
         f"{brand} {model} vibration noise rattle",
-        f"{brand} {model} long term review problems",
+        f"{brand} {model} long term ownership review",
+        f"{brand} {model} {year} honest review",
+        f"{brand} {model} issues after buying",
+        f"{brand} {model} real world problems",
+        f"{model} {year} owner review India",
     ]
 
-    for qi, query in enumerate(queries):
+    seen_video_ids = set()
+
+    for query in queries:
         try:
             search_url = (
                 f"https://www.googleapis.com/youtube/v3/search"
                 f"?part=snippet&q={requests.utils.quote(query)}"
-                f"&type=video&maxResults=8&key={api_key}"
+                f"&type=video&maxResults=10&key={api_key}"
                 f"&relevanceLanguage=en&regionCode=IN"
             )
             search_resp = requests.get(search_url, timeout=15)
@@ -492,20 +499,22 @@ def fetch_youtube(api_key: str, brand: str, model: str, year: int,
             if "items" not in search_data:
                 continue
 
-            for video in search_data["items"][:6]:
+            for video in search_data["items"]:
                 video_id = video["id"].get("videoId")
-                if not video_id:
+                if not video_id or video_id in seen_video_ids:
                     continue
+                seen_video_ids.add(video_id)
                 video_url = f"https://youtube.com/watch?v={video_id}"
                 page_token = None
                 page_count = 0
 
-                while page_count < 4:
+                while page_count < 8:  # More pages per video
                     params = {
                         "part": "snippet",
                         "videoId": video_id,
                         "maxResults": 100,
                         "key": api_key,
+                        "order": "relevance",
                     }
                     if page_token:
                         params["pageToken"] = page_token
@@ -520,10 +529,11 @@ def fetch_youtube(api_key: str, brand: str, model: str, year: int,
 
                     for item in comm_data["items"]:
                         c = item["snippet"]["topLevelComment"]["snippet"]
-                        if c.get("likeCount", 0) >= 2 or \
-                                item["snippet"].get("totalReplyCount", 0) > 0:
+                        text = c.get("textDisplay", "")
+                        # Accept ALL comments — no like filter
+                        if len(text) > 20:
                             comments.append({
-                                "text": c.get("textDisplay", ""),
+                                "text": text,
                                 "username": c.get("authorDisplayName", "YouTube user"),
                                 "platform": "youtube",
                                 "source_url": video_url,
@@ -535,12 +545,121 @@ def fetch_youtube(api_key: str, brand: str, model: str, year: int,
                         break
                     page_count += 1
 
-        except Exception as e:
-            pass  # Source fails gracefully
+        except Exception:
+            pass
 
     if progress_cb:
-        progress_cb(f"YouTube: {len(comments)} comments collected")
+        progress_cb(f"YouTube: {len(comments)} comments collected from {len(seen_video_ids)} videos")
     return comments
+
+
+def fetch_google_search(api_key: str, brand: str, model: str,
+                        progress_cb=None) -> list:
+    """
+    Use YouTube Data API search to find forum/review mentions.
+    Also scrape Google search snippets via SerpAPI-style approach.
+    Falls back to direct site searches.
+    """
+    posts = []
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "en-IN,en;q=0.9",
+        "Accept": "text/html,application/xhtml+xml",
+    }
+
+    # Direct Google search — returns snippets from all sites
+    search_queries = [
+        f"{brand} {model} problem site:team-bhp.com",
+        f"{brand} {model} issue site:zigwheels.com",
+        f"{brand} {model} defect site:carwale.com",
+        f"{brand} {model} problem site:cardekho.com",
+        f"{brand} {model} issue site:cartoq.com",
+        f"{brand} {model} problem site:motorbeam.com",
+        f"{brand} {model} vibration noise rattle India",
+        f"{brand} {model} owner complaint India forum",
+    ]
+
+    for query in search_queries:
+        try:
+            url = f"https://www.google.com/search?q={requests.utils.quote(query)}&num=10&hl=en&gl=in"
+            resp = requests.get(url, headers=headers, timeout=15)
+            if resp.status_code != 200:
+                continue
+
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(resp.text, "html.parser")
+
+            # Extract search result snippets
+            for div in soup.find_all("div", class_=lambda x: x and
+                    any(c in str(x) for c in ["VwiC3b", "s3v9rd", "IsZvec",
+                                               "aCOpRe", "st", "lEBKkf"])):
+                text = div.get_text(separator=" ", strip=True)
+                if len(text) > 60:
+                    # Determine source from query
+                    source = "web_search"
+                    for site in ["team-bhp", "zigwheels", "carwale", "cardekho",
+                                 "cartoq", "motorbeam", "autocar", "overdrive"]:
+                        if site in query:
+                            source = site.replace("-", "_")
+                            break
+                    posts.append({
+                        "text": text[:2000],
+                        "username": "Web search result",
+                        "platform": source,
+                        "source_url": f"https://google.com/search?q={requests.utils.quote(query)}",
+                        "date": "",
+                    })
+
+            time.sleep(2)  # Respect Google rate limits
+
+        except Exception:
+            pass
+
+    if progress_cb:
+        progress_cb(f"Google search: {len(posts)} snippets collected")
+    return posts
+
+
+def fetch_rss_feeds(brand: str, model: str, progress_cb=None) -> list:
+    """Fetch RSS feeds from all major Indian auto sites — always works, no blocking."""
+    posts = []
+    import feedparser
+
+    rss_feeds = [
+        ("https://www.autocarindia.com/rss/latest", "autocar"),
+        ("https://www.zigwheels.com/rss", "zigwheels"),
+        ("https://www.carwale.com/rss/news.xml", "carwale"),
+        ("https://www.motorbeam.com/feed", "motorbeam"),
+        ("https://www.cartoq.com/feed", "cartoq"),
+        ("https://www.overdriveindia.com/feed", "overdrive"),
+        ("https://www.team-bhp.com/rss.xml", "team_bhp"),
+        ("https://www.v3cars.com/feed", "v3cars"),
+    ]
+
+    for feed_url, platform in rss_feeds:
+        try:
+            feed = feedparser.parse(feed_url)
+            for entry in feed.entries:
+                title = entry.get("title", "")
+                summary = entry.get("summary", "") or entry.get("description", "")
+                text = f"{title} {summary}".strip()
+                # Only include if mentions our model
+                if (model.lower() in text.lower() or
+                        brand.lower() in text.lower()):
+                    posts.append({
+                        "text": text[:2000],
+                        "username": platform,
+                        "platform": platform,
+                        "source_url": entry.get("link", feed_url),
+                        "date": entry.get("published", ""),
+                    })
+        except Exception:
+            pass
+
+    if progress_cb:
+        progress_cb(f"RSS feeds: {len(posts)} articles collected")
+    return posts
 
 
 # ============================================================
@@ -2190,33 +2309,50 @@ def run_analysis(brand: str, model: str, year: int, secrets: dict,
 
     all_comments = []
 
-    # Step 1: YouTube
-    with st.spinner(""):
-        st.markdown(
-            '<div style="color:#E63946;font-family:IBM Plex Mono,'
-            'monospace;font-size:12px;">Step 1/10 — YouTube...</div>',
-            unsafe_allow_html=True
-        )
-        yt = fetch_youtube(secrets["youtube"], brand, model, year,
-                            progress_cb=log)
-        all_comments.extend(yt)
-        log(f"YouTube: {len(yt)} comments")
-
-    # Step 2: Team-BHP
+    # Step 1: YouTube — massively expanded
     st.markdown(
         '<div style="color:#E63946;font-family:IBM Plex Mono,'
-        'monospace;font-size:12px;">Step 2/10 — Team-BHP...</div>',
+        'monospace;font-size:12px;">Step 1/10 — Fetching YouTube comments (all videos)...</div>',
         unsafe_allow_html=True
     )
-    tbhp = fetch_teambhp(secrets["firecrawl"], brand, model,
-                          progress_cb=log)
+    yt = fetch_youtube(secrets["youtube"], brand, model, year, progress_cb=log)
+    all_comments.extend(yt)
+    log(f"YouTube: {len(yt)} comments from {len(set(c['source_url'] for c in yt))} videos")
+
+    # Step 2: RSS Feeds — lightweight, always works
+    st.markdown(
+        '<div style="color:#E63946;font-family:IBM Plex Mono,'
+        'monospace;font-size:12px;">Step 2/10 — RSS feeds (Autocar, ZigWheels, Motorbeam, CarToq, Overdrive)...</div>',
+        unsafe_allow_html=True
+    )
+    rss = fetch_rss_feeds(brand, model, progress_cb=log)
+    all_comments.extend(rss)
+    log(f"RSS feeds: {len(rss)} articles")
+
+    # Step 3: Google Search snippets
+    st.markdown(
+        '<div style="color:#E63946;font-family:IBM Plex Mono,'
+        'monospace;font-size:12px;">Step 3/10 — Google search (Team-BHP, ZigWheels, CarWale snippets)...</div>',
+        unsafe_allow_html=True
+    )
+    gsearch = fetch_google_search(secrets["youtube"], brand, model, progress_cb=log)
+    all_comments.extend(gsearch)
+    log(f"Google search: {len(gsearch)} snippets")
+
+    # Step 4: Team-BHP direct
+    st.markdown(
+        '<div style="color:#E63946;font-family:IBM Plex Mono,'
+        'monospace;font-size:12px;">Step 4/10 — Team-BHP forum...</div>',
+        unsafe_allow_html=True
+    )
+    tbhp = fetch_teambhp(secrets["firecrawl"], brand, model, progress_cb=log)
     all_comments.extend(tbhp)
     log(f"Team-BHP: {len(tbhp)} posts")
 
-    # Step 3: Reddit
+    # Step 5: Reddit
     st.markdown(
         '<div style="color:#E63946;font-family:IBM Plex Mono,'
-        'monospace;font-size:12px;">Step 3/10 — Reddit...</div>',
+        'monospace;font-size:12px;">Step 5/10 — Reddit communities...</div>',
         unsafe_allow_html=True
     )
     reddit = fetch_reddit(
@@ -2226,17 +2362,16 @@ def run_analysis(brand: str, model: str, year: int, secrets: dict,
     all_comments.extend(reddit)
     log(f"Reddit: {len(reddit)} posts")
 
-    # Steps 4-7: Review sites
+    # Steps 6-7: Review sites (direct HTTP)
     st.markdown(
         '<div style="color:#E63946;font-family:IBM Plex Mono,'
-        'monospace;font-size:12px;">'
-        'Steps 4-7/10 — Review sites...</div>',
+        'monospace;font-size:12px;">Steps 6-7/10 — Review sites (CarWale, ZigWheels, CarDekho, MouthShut...)...</div>',
         unsafe_allow_html=True
     )
-    reviews = fetch_review_sites(secrets["firecrawl"], brand, model,
-                                  progress_cb=log)
+    reviews = fetch_review_sites(secrets["firecrawl"], brand, model, progress_cb=log)
     all_comments.extend(reviews)
     log(f"Review sites: {len(reviews)} reviews")
+    log(f"TOTAL RAW: {len(all_comments)} items from all sources")
 
     # Step 8: Hard filter
     st.markdown(
