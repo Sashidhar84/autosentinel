@@ -1046,8 +1046,7 @@ def translate_batch_with_gemini(api_key: str, texts: list) -> list:
     if not texts:
         return texts
 
-    numbered = "
-".join([f"[{i+1}] {t[:500]}" for i, t in enumerate(texts)])
+    numbered = "\n".join([f"[{i+1}] {t[:500]}" for i, t in enumerate(texts)])
 
     prompt = f"""You are a translator for an automotive research system.
 
@@ -1087,8 +1086,7 @@ Texts to translate:
 
         # Parse numbered translations back
         translated = list(texts)  # copy original as fallback
-        lines = raw.strip().split("
-")
+        lines = raw.strip().split("\n")
         for line in lines:
             line = line.strip()
             m = re.match(r"\[(\d+)\]\s*(.*)", line)
