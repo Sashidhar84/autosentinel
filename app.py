@@ -1005,6 +1005,154 @@ NEGATIVE_SIGNALS = [
     r'lemon', r'junk', r'garbage',
 ]
 
+# ============================================================
+# LANGUAGE DETECTION & TRANSLATION
+# ============================================================
+
+# Common Hindi/Hinglish automotive problem words
+# Used for detection — tells us a comment needs translation
+HINDI_INDICATORS = [
+    # Devanagari unicode range
+    r'[ऀ-ॿ]',
+    # Common Hinglish problem words (romanised Hindi)
+    r'kharab', r'kharaab', r'kharabi',  # bad/defect
+    r'problem\s+hai', r'pareshani',           # problem is/trouble  
+    r'nahi\s+chal', r'chal\s+nahi',           # not working
+    r'banda\s+ho', r'band\s+ho',              # stopped
+    r'ahwaz', r'aawaaz', r'awaz',         # sound/noise
+    r'hilna', r'hilti', r'hilta',         # vibration
+    r'dikkat', r'dikkat\s+aa',                # difficulty
+    r'garmi', r'garma',                        # heat/overheat
+    r'telugu', r'tamil',                       # language mentions
+    r'[஀-௿]',  # Tamil script
+    r'[ఀ-౿]',  # Telugu script
+    r'[ಀ-೿]',  # Kannada script
+    r'[ഀ-ൿ]',  # Malayalam script
+]
+
+def needs_translation(text: str) -> bool:
+    """Check if text contains non-English content needing translation."""
+    for pattern in HINDI_INDICATORS:
+        if re.search(pattern, text, re.IGNORECASE):
+            return True
+    return False
+
+def translate_batch_with_gemini(api_key: str, texts: list) -> list:
+    """
+    Translate a batch of Hindi/Hinglish/regional language texts to English
+    using Gemini. Free, no separate translation API needed.
+    Returns list of translated texts in same order.
+    """
+    if not texts:
+        return texts
+
+    numbered = "
+".join([f"[{i+1}] {t[:500]}" for i, t in enumerate(texts)])
+
+    prompt = f"""You are a translator for an automotive research system.
+
+Translate each numbered text below to clear English.
+- If text is already in English, return it unchanged
+- If text is Hindi, Hinglish, Tamil, Telugu, Kannada, Malayalam — translate to English
+- Preserve automotive technical terms (brake, NVH, vibration etc)
+- Keep the meaning exactly — do not paraphrase or summarise
+- Return ONLY the translations numbered the same way, nothing else
+
+Texts to translate:
+{numbered}"""
+
+    try:
+        resp = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"gemini-1.5-flash:generateContent?key={api_key}",
+            headers={"Content-Type": "application/json"},
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {
+                    "temperature": 0.1,
+                    "maxOutputTokens": 4096,
+                },
+            },
+            timeout=60,
+        )
+        data = resp.json()
+        raw = (
+            data.get("candidates", [{}])[0]
+            .get("content", {})
+            .get("parts", [{}])[0]
+            .get("text", "")
+        )
+        if not raw:
+            return texts
+
+        # Parse numbered translations back
+        translated = list(texts)  # copy original as fallback
+        lines = raw.strip().split("
+")
+        for line in lines:
+            line = line.strip()
+            m = re.match(r"\[(\d+)\]\s*(.*)", line)
+            if m:
+                idx = int(m.group(1)) - 1
+                translation = m.group(2).strip()
+                if 0 <= idx < len(translated) and translation:
+                    translated[idx] = translation
+        return translated
+
+    except Exception:
+        return texts  # Return originals if translation fails
+
+def translate_comments(comments: list, api_key: str,
+                        progress_cb=None) -> list:
+    """
+    Detect and translate non-English comments.
+    Uses Gemini Flash (faster, free) in batches of 20.
+    Adds original_text field for audit trail.
+    """
+    # Find comments needing translation
+    to_translate_idx = []
+    for i, c in enumerate(comments):
+        if needs_translation(c.get("text", "")):
+            to_translate_idx.append(i)
+
+    if not to_translate_idx:
+        if progress_cb:
+            progress_cb("Translation: All comments already in English")
+        return comments
+
+    if progress_cb:
+        progress_cb(
+            f"Translation: {len(to_translate_idx)} non-English comments detected "
+            f"(Hindi/Hinglish/Tamil/Telugu/Kannada/Malayalam) — translating..."
+        )
+
+    # Translate in batches of 20
+    TRANS_BATCH = 20
+    for batch_start in range(0, len(to_translate_idx), TRANS_BATCH):
+        batch_indices = to_translate_idx[batch_start:batch_start + TRANS_BATCH]
+        batch_texts = [comments[i]["text"] for i in batch_indices]
+
+        translated_texts = translate_batch_with_gemini(api_key, batch_texts)
+
+        for i, idx in enumerate(batch_indices):
+            if translated_texts[i] != comments[idx]["text"]:
+                # Store original for reference
+                comments[idx]["original_text"] = comments[idx]["text"]
+                comments[idx]["text"] = translated_texts[i]
+                comments[idx]["translated"] = True
+
+        time.sleep(1)  # Rate limit respect
+
+    translated_count = sum(
+        1 for c in comments if c.get("translated", False)
+    )
+    if progress_cb:
+        progress_cb(
+            f"Translation: {translated_count} comments translated to English ✓"
+        )
+    return comments
+
+
 def classify_sentiment(text: str) -> str:
     """Classify text as Positive, Negative or Mixed."""
     text_lower = text.lower()
@@ -1189,25 +1337,44 @@ def run_gemini_analysis(api_key: str, brand: str, model: str,
                          year: int, comments: list) -> Optional[dict]:
     """Send filtered comments to Gemini and get structured analysis."""
 
-    BATCH_SIZE = 120
+    # Smaller batch size — faster, more reliable on free tier
+    BATCH_SIZE = 50
     all_defects = []
     last_proposal = None
 
+    # Deduplicate and limit to most relevant comments
+    # Sort by text length — longer = more detailed = more useful
+    comments_sorted = sorted(
+        comments,
+        key=lambda x: len(x.get("text", "")),
+        reverse=True
+    )
+    # Take top 200 most detailed comments across all sources
+    comments_to_analyse = comments_sorted[:200]
+
     # Split into batches
     batches = [
-        comments[i:i + BATCH_SIZE]
-        for i in range(0, len(comments), BATCH_SIZE)
+        comments_to_analyse[i:i + BATCH_SIZE]
+        for i in range(0, len(comments_to_analyse), BATCH_SIZE)
     ]
     if not batches:
         return None
 
+    # Show Gemini progress in UI
+    gemini_placeholder = st.empty()
+
     for batch_idx, batch in enumerate(batches):
+        gemini_placeholder.markdown(
+            f'<div style="color:#2EC4B6;font-family:IBM Plex Mono,monospace;font-size:11px;">'
+            f'Gemini analysing batch {batch_idx+1}/{len(batches)} ({len(batch)} comments)...</div>',
+            unsafe_allow_html=True
+        )
+
+        # Truncate each comment to save tokens
         comments_text = "\n---\n".join([
-            f"[{i+1}] Platform: {c.get('platform','?')} | "
-            f"User: {c.get('username','?')} | "
-            f"Date: {c.get('date','?')} | "
-            f"URL: {c.get('source_url','?')}\n"
-            f"Comment: {c.get('text','')}"
+            f"[{i+1}] Source: {c.get('platform','?')} | "
+            f"User: {c.get('username','?')}\n"
+            f"Text: {c.get('text','')[:500]}"
             for i, c in enumerate(batch)
         ])
 
@@ -2050,10 +2217,25 @@ def render_verbatim(vb: dict, label="CUSTOMER VERBATIM") -> str:
         f'style="color:#444;font-size:10px;">[source]</a>'
         if url else ""
     )
+    translated = vb.get("translated", False)
+    original = vb.get("original_text", "")
+    trans_badge = (
+        '<span style="font-size:9px;background:#2EC4B6;color:#000;'
+        'padding:1px 6px;border-radius:3px;margin-left:6px;'
+        'font-family:IBM Plex Mono,monospace;letter-spacing:1px;">'
+        'TRANSLATED</span>'
+        if translated else ""
+    )
+    orig_html = (
+        f'<div style="font-size:10px;color:#444;margin-top:4px;'
+        f'font-style:italic;">Original: {original[:200]}</div>'
+        if translated and original else ""
+    )
     return f"""
     <div class="verbatim-box">
-      <div class="verbatim-label">{label}</div>
+      <div class="verbatim-label">{label}{trans_badge}</div>
       <div class="verbatim-quote">"{quote}"</div>
+      {orig_html}
       <div class="verbatim-attr">
         — {username} &nbsp;·&nbsp; {platform} &nbsp;·&nbsp; {date}
         &nbsp;{link}
@@ -2373,6 +2555,16 @@ def run_analysis(brand: str, model: str, year: int, secrets: dict,
     log(f"Review sites: {len(reviews)} reviews")
     log(f"TOTAL RAW: {len(all_comments)} items from all sources")
 
+    # Step 7.5: Language detection + translation
+    st.markdown(
+        '<div style="color:#E63946;font-family:IBM Plex Mono,'
+        'monospace;font-size:12px;">Step 7.5/10 — Detecting Hindi/Hinglish/Tamil/Telugu — translating to English...</div>',
+        unsafe_allow_html=True
+    )
+    all_comments = translate_comments(
+        all_comments, secrets["gemini"], progress_cb=log
+    )
+
     # Step 8: Hard filter
     st.markdown(
         '<div style="color:#E63946;font-family:IBM Plex Mono,'
@@ -2550,40 +2742,43 @@ def main():
                 exp_col1, exp_col2, exp_col3 = st.columns(3)
 
                 with exp_col1:
-                    if st.button("📄 Download PDF", use_container_width=True):
+                    with st.spinner("Generating PDF..."):
                         pdf_bytes = export_pdf(result, escalations)
-                        if pdf_bytes:
-                            st.download_button(
-                                "⬇ Save PDF",
-                                data=pdf_bytes,
-                                file_name=f"autosentinel_{brand}_{model}_{year}.pdf",
-                                mime="application/pdf",
-                                use_container_width=True,
-                            )
+                    if pdf_bytes:
+                        st.download_button(
+                            "📄 Download PDF",
+                            data=pdf_bytes,
+                            file_name=f"autosentinel_{brand}_{model}_{year}.pdf",
+                            mime="application/pdf",
+                            use_container_width=True,
+                            key="pdf_download",
+                        )
 
                 with exp_col2:
-                    if st.button("📊 Download Excel", use_container_width=True):
+                    with st.spinner("Generating Excel..."):
                         xl_bytes = export_excel(result, escalations)
-                        if xl_bytes:
-                            st.download_button(
-                                "⬇ Save Excel",
-                                data=xl_bytes,
-                                file_name=f"autosentinel_{brand}_{model}_{year}.xlsx",
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                use_container_width=True,
-                            )
+                    if xl_bytes:
+                        st.download_button(
+                            "📊 Download Excel",
+                            data=xl_bytes,
+                            file_name=f"autosentinel_{brand}_{model}_{year}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True,
+                            key="excel_download",
+                        )
 
                 with exp_col3:
-                    if st.button("📑 Download PPTX", use_container_width=True):
+                    with st.spinner("Generating PPTX..."):
                         pptx_bytes = export_pptx(result, escalations)
-                        if pptx_bytes:
-                            st.download_button(
-                                "⬇ Save PowerPoint",
-                                data=pptx_bytes,
-                                file_name=f"autosentinel_{brand}_{model}_{year}.pptx",
-                                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                                use_container_width=True,
-                            )
+                    if pptx_bytes:
+                        st.download_button(
+                            "📑 Download PPTX",
+                            data=pptx_bytes,
+                            file_name=f"autosentinel_{brand}_{model}_{year}.pptx",
+                            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                            use_container_width=True,
+                            key="pptx_download",
+                        )
 
         elif analyse_btn:
             st.warning("Please select a brand and model to analyse.")
