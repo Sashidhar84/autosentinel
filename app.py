@@ -351,18 +351,48 @@ INDIAN_CAR_MODELS = {
 # ============================================================
 
 def get_secrets():
-    """Get API keys from Streamlit secrets"""
-    try:
-        return {
-            "firecrawl": st.secrets["FIRECRAWL_API_KEY"],
-            "gemini": st.secrets["GEMINI_API_KEY"],
-            "youtube": st.secrets["YOUTUBE_API_KEY"],
-            "reddit_id": st.secrets["REDDIT_CLIENT_ID"],
-            "reddit_secret": st.secrets["REDDIT_CLIENT_SECRET"],
-        }
-    except Exception:
-        st.error("⚠ API keys not configured. Add them in Streamlit Cloud → App Settings → Secrets.")
+    """Get API keys from Streamlit secrets or environment variables"""
+
+    def get_key(key_name, fallback=""):
+        # Try st.secrets first
+        try:
+            val = st.secrets[key_name]
+            if val and str(val).strip():
+                return str(val).strip()
+        except Exception:
+            pass
+        # Try environment variable as fallback
+        val = os.environ.get(key_name, fallback)
+        return str(val).strip() if val else fallback
+
+    firecrawl = get_key("FIRECRAWL_API_KEY")
+    gemini = get_key("GEMINI_API_KEY")
+    youtube = get_key("YOUTUBE_API_KEY")
+
+    # Check if critical keys are present
+    if not firecrawl or not gemini or not youtube:
+        st.error(
+            "⚠ API keys not configured. "
+            "Go to Streamlit Cloud → Your app → ⋮ menu → Settings → Secrets "
+            "and add your keys in TOML format."
+        )
+        st.code(
+            'FIRECRAWL_API_KEY = "your-firecrawl-key"\n'
+            'GEMINI_API_KEY = "your-gemini-key"\n'
+            'YOUTUBE_API_KEY = "your-youtube-key"\n'
+            'REDDIT_CLIENT_ID = "not-applicable"\n'
+            'REDDIT_CLIENT_SECRET = "not-applicable"',
+            language="toml",
+        )
         st.stop()
+
+    return {
+        "firecrawl": firecrawl,
+        "gemini": gemini,
+        "youtube": youtube,
+        "reddit_id": get_key("REDDIT_CLIENT_ID", "not-applicable"),
+        "reddit_secret": get_key("REDDIT_CLIENT_SECRET", "not-applicable"),
+    }
 
 # ============================================================
 # DATA FETCHER: YouTube
