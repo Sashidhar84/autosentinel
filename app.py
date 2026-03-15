@@ -309,41 +309,111 @@ html, body, [class*="css"] {
 
 INDIAN_CAR_MODELS = {
     "Maruti Suzuki": [
-        "Swift", "Baleno", "Brezza", "Ertiga", "XL6", "Fronx", "Jimny",
-        "Grand Vitara", "Dzire", "WagonR", "Alto K10", "S-Presso",
-        "Celerio", "Ignis", "Ciaz",
+        "Swift", "Swift Dzire", "Baleno", "Brezza", "Ertiga", "XL6",
+        "Fronx", "Jimny", "Grand Vitara", "Grand Vitara Hybrid",
+        "WagonR", "Alto K10", "S-Presso", "Celerio", "Ignis", "Ciaz",
+        "Vitara Brezza", "S-Cross",
     ],
     "Hyundai": [
-        "Creta", "Venue", "i20", "Grand i10 Nios", "Aura", "Verna",
-        "Alcazar", "Tucson", "Ioniq 5", "Exter",
+        "Creta", "Creta Electric", "Venue", "Venue N Line", "i20",
+        "i20 N Line", "Grand i10 Nios", "Aura", "Verna", "Alcazar",
+        "Tucson", "Ioniq 5", "Ioniq 6", "Exter", "Santro",
     ],
     "Tata": [
-        "Nexon", "Punch", "Tiago", "Tigor", "Altroz", "Harrier",
-        "Safari", "Curvv", "Nexon EV", "Punch EV", "Tiago EV",
+        "Nexon", "Nexon EV", "Nexon EV Max", "Punch", "Punch EV",
+        "Tiago", "Tiago EV", "Tigor", "Tigor EV", "Altroz",
+        "Harrier", "Safari", "Curvv", "Curvv EV", "Sierra EV",
+        "Nano", "Hexa", "Bolt", "Zest",
     ],
     "Mahindra": [
-        "XUV700", "XUV300", "XUV400", "Thar", "Bolero", "Scorpio N",
-        "Scorpio Classic", "BE 6e", "XEV 9e", "Bolero Neo",
+        "XUV700", "XUV300", "XUV300 EV", "XUV400", "Thar",
+        "Thar Roxx", "Bolero", "Bolero Neo", "Bolero Neo Plus",
+        "Scorpio N", "Scorpio Classic", "BE 6e", "XEV 9e",
+        "Marazzo", "TUV 300", "KUV 100",
     ],
-    "Honda": ["Amaze", "City", "Elevate", "WR-V"],
+    "Honda": [
+        "Amaze", "City", "City Hybrid", "Elevate", "WR-V",
+        "Jazz", "BR-V", "CR-V", "HR-V",
+    ],
     "Toyota": [
-        "Innova Crysta", "Innova HyCross", "Fortuner", "Legender",
-        "Urban Cruiser Hyryder", "Glanza", "Rumion", "Camry",
+        "Innova Crysta", "Innova HyCross", "Fortuner",
+        "Fortuner Legender", "Urban Cruiser Hyryder", "Glanza",
+        "Rumion", "Camry Hybrid", "Land Cruiser", "Hilux",
+        "Vellfire", "Etios", "Liva",
     ],
-    "Kia": ["Seltos", "Sonet", "Carens", "EV6", "EV9"],
-    "MG": ["Hector", "Astor", "Comet EV", "Windsor EV", "Gloster", "ZS EV"],
-    "Skoda": ["Slavia", "Kushaq", "Kodiaq", "Superb", "Octavia"],
-    "Volkswagen": ["Taigun", "Virtus", "Tiguan", "Passat"],
-    "Renault": ["Kwid", "Triber", "Kiger"],
-    "Nissan": ["Magnite", "GT-R"],
-    "Citroën": ["C3", "C3 Aircross", "C5 Aircross"],
-    "Jeep": ["Compass", "Meridian", "Wrangler", "Grand Cherokee"],
-    "BMW": ["3 Series", "5 Series", "7 Series", "X1", "X3", "X5", "iX", "i4"],
-    "Mercedes-Benz": ["C-Class", "E-Class", "S-Class", "GLA", "GLC", "GLE", "EQB", "EQS"],
-    "Audi": ["A4", "A6", "Q3", "Q5", "Q7", "e-tron", "e-tron GT"],
-    "Volvo": ["XC40", "XC60", "XC90", "S60", "S90"],
-    "Force": ["Gurkha", "Trax"],
-    "Isuzu": ["D-Max V-Cross", "MU-X"],
+    "Kia": [
+        "Seltos", "Seltos X Line", "Sonet", "Sonet X Line",
+        "Carens", "EV6", "EV9", "Carnival",
+    ],
+    "MG": [
+        "Hector", "Hector Plus", "Astor", "Comet EV",
+        "Windsor EV", "Gloster", "ZS EV",
+    ],
+    "Skoda": [
+        "Slavia", "Kushaq", "Kodiaq", "Superb", "Octavia",
+        "Karoq", "Rapid", "Fabia",
+    ],
+    "Volkswagen": [
+        "Taigun", "Virtus", "Tiguan", "Tiguan Allspace",
+        "Passat", "Vento", "Polo",
+    ],
+    "Renault": [
+        "Kwid", "Kwid EV", "Triber", "Kiger", "Duster",
+        "Captur", "Lodgy",
+    ],
+    "Nissan": [
+        "Magnite", "Kicks", "GT-R", "X-Trail", "Terrano",
+    ],
+    "Citroën": [
+        "C3", "C3 Aircross", "C5 Aircross", "eC3", "Basalt",
+    ],
+    "Jeep": [
+        "Compass", "Compass Trailhawk", "Meridian",
+        "Wrangler", "Grand Cherokee",
+    ],
+    "BMW": [
+        "3 Series", "5 Series", "7 Series", "X1", "X3", "X5", "X7",
+        "iX", "iX1", "iX3", "i4", "i5", "i7",
+        "2 Series Gran Coupe", "M3", "M5", "M340i",
+    ],
+    "Mercedes-Benz": [
+        "C-Class", "E-Class", "S-Class", "A-Class",
+        "GLA", "GLB", "GLC", "GLE", "GLS",
+        "EQB", "EQC", "EQE", "EQS",
+        "AMG C63", "AMG GLE63", "G-Class",
+    ],
+    "Audi": [
+        "A4", "A6", "A8", "Q2", "Q3", "Q5", "Q7", "Q8",
+        "e-tron", "e-tron GT", "Q8 e-tron", "RS Q8", "TT",
+    ],
+    "Volvo": [
+        "XC40", "XC40 Recharge", "XC60", "XC90",
+        "S60", "S90", "C40 Recharge", "V90 Cross Country",
+    ],
+    "Force": [
+        "Gurkha", "Gurkha 5-Door", "Trax", "Traveller",
+    ],
+    "Isuzu": [
+        "D-Max V-Cross", "D-Max S-Cab", "MU-X",
+    ],
+    "Lexus": [
+        "ES 300h", "NX 350h", "RX 350h", "LX 500d", "UX 300e", "LS 500h",
+    ],
+    "Porsche": [
+        "Cayenne", "Cayenne E-Hybrid", "Macan", "Macan EV",
+        "Taycan", "Panamera", "911", "718 Cayman",
+    ],
+    "Land Rover": [
+        "Defender", "Defender 110", "Discovery",
+        "Discovery Sport", "Range Rover", "Range Rover Sport",
+        "Range Rover Velar", "Range Rover Evoque",
+    ],
+    "Jaguar": [
+        "XE", "XF", "F-Pace", "E-Pace", "I-Pace", "F-Type",
+    ],
+    "Datsun": [
+        "Redi-GO", "GO", "GO Plus",
+    ],
 }
 
 # ============================================================
@@ -763,24 +833,51 @@ INCLUDE_SIGNALS = [
     r'overheating', r'misfiring', r'stalling', r'pulling',
 ]
 
+POSITIVE_SIGNALS = [
+    r'\bgreat\b', r'\bexcellent\b', r'\bamazing\b', r'\bfantastic\b',
+    r'\blove\b', r'\bloved\b', r'best in class', r'\bsmooth\b',
+    r'comfortable', r'reliable', r'fuel efficient', r'good mileage',
+    r'value for money', r'\bimpressive\b', r'\bsatisfied\b',
+    r'no issues', r'zero issues', r'no complaints', r'highly recommend',
+    r'\bperfect\b', r'\boutstanding\b', r'\bsuperb\b', r'\bbrilliant\b',
+    r'good build', r'solid build', r'premium feel', r'fun to drive',
+]
+
+NEGATIVE_SIGNALS = [
+    r'\bpoor\b', r'\bbad\b', r'\bterrible\b', r'\bawful\b',
+    r'worst', r'\bdisappointed\b', r'\bdisappointing\b',
+    r'not worth', r'waste of money', r'regret', r'regretted',
+    r'pathetic', r'horrible', r'\bfrustrating\b', r'frustrated',
+    r'never buy', r'do not buy', r"don't buy", r'avoid',
+    r'lemon', r'junk', r'garbage',
+]
+
+def classify_sentiment(text: str) -> str:
+    """Classify text as Positive, Negative or Mixed."""
+    text_lower = text.lower()
+    pos_score = sum(1 for p in POSITIVE_SIGNALS if re.search(p, text_lower))
+    neg_score = sum(1 for p in NEGATIVE_SIGNALS + INCLUDE_SIGNALS if re.search(p, text_lower))
+    if pos_score > neg_score:
+        return "Positive"
+    elif neg_score > pos_score:
+        return "Negative"
+    else:
+        return "Mixed"
+
 def hard_filter(comments: list) -> list:
-    """Remove service/delivery noise. Keep only quality defects."""
+    """Remove service/delivery noise. Keep quality defects + sentiment."""
     filtered = []
     for c in comments:
         text = c.get("text", "").lower()
-        if len(text) < 40:
+        if len(text) < 30:
             continue
-        # Exclude if matches any exclude pattern
-        excluded = any(
-            re.search(p, text) for p in EXCLUDE_PATTERNS
-        )
+        excluded = any(re.search(p, text) for p in EXCLUDE_PATTERNS)
         if excluded:
             continue
-        # Include if matches any quality signal
-        has_signal = any(
-            re.search(p, text) for p in INCLUDE_SIGNALS
-        )
-        if has_signal:
+        has_quality = any(re.search(p, text) for p in INCLUDE_SIGNALS)
+        has_sentiment = any(re.search(p, text) for p in POSITIVE_SIGNALS + NEGATIVE_SIGNALS)
+        if has_quality or has_sentiment:
+            c["sentiment"] = classify_sentiment(c.get("text", ""))
             filtered.append(c)
     return filtered
 
@@ -1998,6 +2095,32 @@ def render_summary_strip(result: dict, escalations: list,
             unsafe_allow_html=True
         )
 
+    # Sentiment breakdown
+    defects = result.get("top_10_defects", [])
+    all_sentiments = []
+    for d in defects:
+        for v in [d.get("best_verbatim",{})] + d.get("additional_verbatims",[]):
+            pass
+    comments_data = result.get("all_comments_sentiment", {})
+    pos = comments_data.get("positive", 0)
+    neg = comments_data.get("negative", 0)
+    mixed = comments_data.get("mixed", 0)
+    total_sent = pos + neg + mixed
+    if total_sent > 0:
+        pos_pct = int(pos/total_sent*100)
+        neg_pct = int(neg/total_sent*100)
+        mix_pct = 100 - pos_pct - neg_pct
+        st.markdown(
+            f'<div style="display:flex;gap:16px;margin-top:12px;">' +
+            f'<span style="font-size:13px;color:#52B788;font-family:IBM Plex Mono,monospace;">'
+            f'● Positive {pos_pct}%</span>' +
+            f'<span style="font-size:13px;color:#E63946;font-family:IBM Plex Mono,monospace;">'
+            f'● Negative {neg_pct}%</span>' +
+            f'<span style="font-size:13px;color:#F4A261;font-family:IBM Plex Mono,monospace;">'
+            f'● Mixed {mix_pct}%</span>' +
+            f'</div>',
+            unsafe_allow_html=True
+        )
     st.markdown(
         f'<div style="font-size:11px;color:#444;margin-top:8px;'
         f'font-family:IBM Plex Mono,monospace;">{freshness}</div>',
@@ -2088,8 +2211,17 @@ def run_analysis(brand: str, model: str, year: int, secrets: dict,
         unsafe_allow_html=True
     )
     filtered = hard_filter(all_comments)
-    log(f"Filter: {len(filtered)} quality defect comments kept "
-        f"from {len(all_comments)} total")
+    # Count sentiment breakdown
+    sentiment_counts = {"positive": 0, "negative": 0, "mixed": 0}
+    for c in filtered:
+        s = c.get("sentiment", "mixed").lower()
+        if s in sentiment_counts:
+            sentiment_counts[s] += 1
+    log(f"Filter: {len(filtered)} comments kept — "
+        f"Pos:{sentiment_counts['positive']} "
+        f"Neg:{sentiment_counts['negative']} "
+        f"Mixed:{sentiment_counts['mixed']} "
+        f"(from {len(all_comments)} total)")
 
     if len(filtered) < 20:
         st.markdown(
@@ -2131,6 +2263,7 @@ def run_analysis(brand: str, model: str, year: int, secrets: dict,
 
     # Store escalations in result for export
     result["escalations"] = escalations
+    result["all_comments_sentiment"] = sentiment_counts
 
     progress_placeholder.empty()
     save_cache(cache_key, {"result": result, "escalations": escalations})
